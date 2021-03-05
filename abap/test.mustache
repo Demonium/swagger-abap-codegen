@@ -1,0 +1,133 @@
+{{#operations}}
+
+*----------------------------------------------------------------------*
+*       CLASS /cl_{{classname}} DEFINITION
+*----------------------------------------------------------------------*
+*{{appName}}
+*----------------------------------------------------------------------*
+class /{{classname}} definition.
+
+  public section.
+  methods:
+  constructor.
+  {{#operation}}
+*
+* {{summary}}
+* {{notes}}
+*
+
+ {{#allParams}}
+
+ {{#isListContainer}}
+types: tt_{{baseName}} type standard table of {{baseType}} with default key.
+ {{/isListContainer}}
+
+ {{/allParams}}
+
+types : begin of ts_{{operationIdSnakeCase}},
+ {{#allParams}}
+{{#isListContainer}}
+    {{paramName}}   type tt_{{baseName}}, "{{description}}  
+{{/isListContainer}}
+{{^isListContainer}}
+  {{paramName}}   type {{dataType}}, "{{description}}
+{{/isListContainer}}
+ {{/allParams}}
+end of ts_{{operationIdSnakeCase}}.
+
+types : tt_{{operationIdSnakeCase}} type table of ts_{{operationIdSnakeCase}}.
+methods : {{operationIdSnakeCase}} 
+  importing  
+    i_{{operationIdSnakeCase}} type {{classname}}=>ts_{{operationIdSnakeCase}}
+
+{{#returnType}} exporting
+ eo_{{returnBaseType}} {{#returnTypeIsPrimitive}} type {{returnBaseType}} {{/returnTypeIsPrimitive}}{{^returnTypeIsPrimitive}} type ref to {{returnBaseType}}{{/returnTypeIsPrimitive}}.{{/returnType}}
+ .
+
+  {{/operation}}
+  private section.
+  {{#operation}}
+    data : _path{{operationIdSnakeCase}} type string value '{{path}}'.
+  {{/operation}} 
+    data lo_manager type ref to /if_http_manager.
+
+
+endclass.                    "{{classname}} DEFINITION
+
+
+
+*----------------------------------------------------------------------*
+*       CLASS /{{classname}} IMPLEMENTATION
+*----------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+class /{{classname}} implementation.
+  method constructor.
+
+    data : lo_mapotempo_mng type ref to /cl_manager.
+    
+    create object lo_mapotempo_mng
+      exporting
+        i_protocol = /cl_rest_client=>https.
+
+    me->lo_manager ?= lo_mapotempo_mng .
+
+  endmethod.
+ {{#operation}}
+*----------------------------------------------------------------------*
+*     {{summary}}
+*     {{notes}}
+*----------------------------------------------------------------------*
+  method {{operationIdSnakeCase}}.
+
+  data : lv_uri             type string.
+  data : lt_http_code       type tihttpnvp.
+  data : lo_exception       type ref to /cx_rest_exception.
+  data : rt_expected_result type /cl_rest_client=>tt_expected_result.
+  data : rs_expected_result like line of rt_expected_result.
+  data : ld_error           type ref to data.
+
+ {{#responses}}
+  rs_expected_result-sign = 'I'.
+  rs_expected_result-option = 'EQ'.
+  rs_expected_result-low = '{{code}}'.
+
+  append rs_expected_result to rt_expected_result.
+
+     {{/responses}}
+
+
+    lv_uri = _path{{operationIdSnakeCase}}.
+
+{{#allParams}}
+  {{#isPathParam}}
+    replace all occurrences of '{\{{paramName}}}' in lv_uri with i_{{operationIdSnakeCase}}-{{paramName}}.
+    {{#hasMore}}
+    {{/hasMore}}
+  {{/isPathParam}}
+{{/allParams}}
+
+    try.
+        call method lo_manager->m_rest->{{httpMethod}}
+          exporting
+            i_uri               = lv_uri
+            i_data              = i_{{operationIdSnakeCase}}
+            i_content_type      = /cl_rest_client=>_content_json
+            et_expected_result  = rt_expected_result
+        importing
+          e_response         = rv_response
+          e_http_code        = lt_http_code
+        changing
+          e_error            = ld_error.
+
+      catch /cx_rest_exception into lo_exception.
+
+    endtry.
+
+  endmethod.                    "{{operationIdSnakeCase}}
+ {{/operation}}
+
+endclass.                    "/{{classname}} IMPLEMENTATION
+
+{{/operations}}
+

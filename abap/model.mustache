@@ -1,0 +1,14 @@
+{{#models}}
+{{#model}}
+{{#hasVars}}
+types: begin of {{classname}} ,
+ {{#vars}}
+  {{name}} type {{{datatype}}},"{{description}}
+{{/vars}}
+end of {{classname}}.
+{{/hasVars}}
+{{#isArrayModel}}
+types: {{classname}}  type standard table of  {{arrayModelType}} with default key.
+{{/isArrayModel}}
+{{/model}}
+{{/models}}

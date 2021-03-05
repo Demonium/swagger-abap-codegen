@@ -1,0 +1,279 @@
+{{#operations}}
+
+*----------------------------------------------------------------------*
+*       CLASS {{basePathWithoutHost}}_cl_{{classname}} DEFINITION
+*----------------------------------------------------------------------*
+*appName        : {{appName}}
+*contextPath    : {{contextPath}}
+*appDescription : {{appDescription}}
+*packageVersion : {{packageVersion}}
+*generatedDate  : {{generatedDate}}
+*basePath       : {{basePath}}
+*baseName       : {{baseName}}
+*----------------------------------------------------------------------*
+class {{basePathWithoutHost}}_cl_{{classname}} definition  inheriting from CL_OA2C_SPECIFICS_ABSTRACT.
+
+  public section.
+
+
+{{#vendorExtensions}}
+*description        : {{x-sap-shortText}}
+
+*{{#x-servers}}
+*url : {{url}}
+*description : {{description}}
+*{{#templates}}
+* tenant_name:
+*  {{#tenant_name}}    {{description}}  {{/tenant_name}}
+*data_center:
+*  {{#data_center}}    {{description}}
+*         {{#enum}}      
+*{{.}}     {{/enum}}  {{/data_center}}
+*domain:
+*  {{#domain}}    {{description}} 
+*    {{#enum}}     
+* {{.}}  
+*    {{/enum}}  {{/domain}}{{/templates}}
+*{{/x-servers}}
+{{/vendorExtensions}}
+
+
+  {{#operation}}
+ {{#allParams}}
+{{#isListContainer}}
+types : tt_{{paramName}} type standard table {{baseType}} with default key.
+{{/isListContainer}}
+ {{/allParams}}
+  {{/operation}}
+
+  methods:
+  constructor.
+
+method IF_OA2C_SPECIFICS~GET_SUPPORTED_GRANT_TYPES redefinition.
+method IF_OA2C_SPECIFICS~GET_ENDPOINT_SETTINGS redefinition.
+method IF_OA2C_SPECIFICS~GET_SCOPE_SEPARATOR redefinition.
+method IF_OA2C_SPECIFICS~GET_AC_AT_RESP_PARAM_NAMES redefinition.
+  methods : 
+  {{#operation}}
+ 
+
+*
+* {{summary}}
+* {{notes}}
+*  {{#isDeprecated}}
+* deprecated
+*  {{/isDeprecated}}
+{{operationIdSnakeCase}} 
+{{#hasParams}}
+  importing  
+ {{#allParams}}
+ {{#isQueryParam}}
+  iv_{{paramName}} type {{dataType}}  {{^required}} optional {{/required}} "{{description}}
+ {{/isQueryParam}}
+{{#isPathParam}}
+  {{#isPrimitiveType}}
+   iv_{{paramName}} type {{dataType}}     {{^required}} optional {{/required}} "{{description}}
+    {{/isPrimitiveType}}
+      {{^isPrimitiveType}}
+        is_{{paramName}} type {{basePathWithoutHost}}_type_models=>{{dataType}}     {{^required}} optional {{/required}} "{{description}}
+        {{/isPrimitiveType}}
+{{/isPathParam}}
+{{#isListContainer}}
+  it_{{paramName}} type tt_{{paramName}}  {{^hasMore}}.{{/hasMore}}
+{{/isListContainer}}
+ {{/allParams}}
+ {{/hasParams}}
+{{#returnSimpleType}}
+ exporting 
+    rv_response       type {{basePathWithoutHost}}_type_models=>{{returnType}}
+{{/returnSimpleType}}    
+{{#hasMore}},{{/hasMore}} {{^hasMore}}.{{/hasMore}}
+  {{/operation}}
+  private section.
+
+  {{#operation}}
+       {{#-first}}
+        data :
+          {{/-first}}
+    _path{{operationIdSnakeCase}} type string value '{{basePathWithoutHost}}{{path}}'  {{#hasMore}},{{/hasMore}} {{^hasMore}}.{{/hasMore}}
+  {{/operation}} 
+ {{#operation}}
+
+ {{#responses}}
+     {{#-first}}
+      constants: 
+      {{/-first}}
+      cv_{{code}}_{{operationIdSnakeCase}} type string value '{{message}}'    {{#hasMore}},{{/hasMore}} {{^hasMore}}.{{/hasMore}} "{{summary}}
+    {{/responses}}
+  {{/operation}} 
+
+    data lo_manager type ref to /if_http_manager.
+
+endclass.                    "{{classname}} DEFINITION
+
+
+
+*----------------------------------------------------------------------*
+*       CLASS {{basePathWithoutHost}}_cl_{{classname}} IMPLEMENTATION
+*----------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+class {{basePathWithoutHost}}_cl_{{classname}} implementation.
+  method constructor.
+
+    data : lo_mng type ref to /cl_manager.
+    
+    create object lo_mng
+      exporting
+        i_protocol = /cl_rest_client=>https.
+
+    me->lo_manager ?= lo_mng .
+
+  endmethod.
+method   IF_OA2C_SPECIFICS~GET_ENDPOINT_SETTINGS.
+
+
+e_changeable                  = abap_false.
+ 
+e_authorization_endpoint_path = `www.facebook.com/dialog/oauth`.
+e_token_endpoint_path         = `graph.facebook.com/oauth/access_token`.
+CLEAR e_revocation_endpoint_path.
+
+
+endmethod.
+method IF_OA2C_SPECIFICS~GET_SUPPORTED_GRANT_TYPES.
+
+e_authorization_code = abap_true.
+e_saml20_assertion   = abap_false.
+e_refresh            = abap_true.
+e_revocation         = abap_false.
+
+
+
+endmethod.
+method IF_OA2C_SPECIFICS~GET_SCOPE_SEPARATOR.
+
+e_separator = ','.
+
+endmethod.
+method IF_OA2C_SPECIFICS~GET_AC_AT_RESP_PARAM_NAMES.
+
+
+CALL METHOD super->if_oa2c_specifics~get_ac_at_resp_param_names
+  IMPORTING
+    e_access_token              = e_access_token
+    e_expires_in                = e_expires_in
+    e_refresh_token             = e_refresh_token
+    e_token_type                = e_token_type
+    e_token_type_value          = e_token_type_value
+    e_error                     = e_error
+    e_error_description         = e_error_description
+    e_error_uri                 = e_error_uri
+    e_ev_invalid_request        = e_ev_invalid_request
+    e_ev_invalid_client         = e_ev_invalid_client
+    e_ev_invalid_grant          = e_ev_invalid_grant
+    e_ev_unauthorized_client    = e_ev_unauthorized_client
+    e_ev_unsupported_grant_type = e_ev_unsupported_grant_type
+    e_ev_invalid_scope          = e_ev_invalid_scope.
+e_expires_in                = 'expires'.
+
+endmethod.
+ {{#operation}}
+*----------------------------------------------------------------------*
+*     {{summary}}
+*     {{notes}}
+*----------------------------------------------------------------------*
+  method {{operationIdSnakeCase}}.
+
+  data : lv_uri             type string.
+  data : lt_http_code       type tihttpnvp.
+  data : lo_exception       type ref to /cx_rest_exception.
+  data : rt_expected_result type /cl_rest_client=>tt_expected_result.
+  data : rs_expected_result like line of rt_expected_result.
+  data : ld_error           type ref to data.
+    data : lv_pathparam       type string.
+
+ {{#responses}}
+  rs_expected_result-sign = 'I'.
+  rs_expected_result-option = 'EQ'.
+  rs_expected_result-low = '{{code}}'.
+
+  append rs_expected_result to rt_expected_result.
+
+     {{/responses}}
+
+
+    lv_uri = _path{{operationIdSnakeCase}}.
+
+
+
+{{#requiredParams}}
+
+ {{^secondaryParam}}
+if iv_{{paramName}} {{/secondaryParam}}  {{#secondaryParam}} iv_{{paramName}} {{/secondaryParam}}  is initial {{#hasMore}}or{{/hasMore}}  {{^hasMore}}.
+ raise exception type /cx_rest_exception.
+endif.
+{{/hasMore}} 
+
+{{/requiredParams}}
+
+{{#allParams}}
+
+
+
+  {{#isPathParam}}
+
+  {{#isPrimitiveType}}
+
+"If needed remove the unecessary lines depends on value present in path _path{{operationIdSnakeCase}}
+
+    replace all occurrences of ':{{paramName}}' in lv_uri with iv_{{paramName}}.
+
+if sy-subrc ne 0.
+
+   concatenate '{' '{{paramName}}' '}' into lv_pathparam.
+
+    replace all occurrences of lv_pathparam in lv_uri with iv_{{paramName}}.
+
+    if sy-subrc ne 0.
+
+      raise exception type /cx_rest_exception.
+
+    endif.
+
+endif.
+
+        {{/isPrimitiveType}}
+
+  {{/isPathParam}}
+{{/allParams}}
+
+ {{#queryParams}}
+ {{^secondaryParam}}
+  concatenate lv_uri '?'  '{{paramName}}' '=' iv_{{paramName}}  {{/secondaryParam}} {{#secondaryParam}} '&' '{{paramName}}' '=' iv_{{paramName}}  {{^hasMore}}into lv_uri.{{/hasMore}}
+ {{/secondaryParam}}
+ {{/queryParams}}
+
+    try.
+        call method lo_manager->m_rest->{{httpMethod}}
+          exporting
+            i_uri               = lv_uri
+            i_content_type      = /cl_rest_client=>_content_json
+            et_expected_result  = rt_expected_result
+        importing
+          e_response         = rv_response
+          e_http_code        = lt_http_code
+        changing
+          e_error            = ld_error.
+
+      catch /cx_rest_exception into lo_exception.
+
+    endtry.
+
+  endmethod.                    "{{operationIdSnakeCase}}
+ {{/operation}}
+
+endclass.                    "{{basePathWithoutHost}}_cl_{{classname}} IMPLEMENTATION
+
+{{/operations}}
+
